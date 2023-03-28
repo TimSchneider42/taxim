@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "taxim"
+version = "1.3.0"
+description = "GPU accelerated implementation of the Taxim simulator."
+readme = "README.md"
+authors = [
+    { name = "Tim Schneider", email = "tim@robot-learning.de" }
+]
+license = { text = "MIT" }
+dependencies = [
+    "numpy"
+]
+
+[project.urls]
+homepage = "https://github.com/TimSchneider42/taxim"
+
+[project.optional-dependencies]
+all = ["torch", "torch-scatter", "jax[cuda12]", "matplotlib"]
+torch = ["torch", "torch-scatter"]
+jax = ["jax[cuda12]"]
+jax-cpu = ["jax"]
+examples = ["matplotlib"]
+
+[tool.setuptools.packages.find]
+include = ["taxim*"]
+
+[tool.setuptools.package-data]
+taxim = ["calib/**/*"]
