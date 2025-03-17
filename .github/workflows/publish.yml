@@ -27,10 +27,24 @@ jobs:
       with:
         path: dist
 
-  publish:
+  gh-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create release
+        uses: marvinpinto/action-automatic-releases@latest
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          prerelease: false
+          draft: false
+
+  pypi-publish:
     runs-on: ubuntu-latest
     needs:
     - build-wheels
+    permissions:
+      id-token: write
     steps:
     - name: Download dists
       uses: actions/download-artifact@v4
@@ -40,5 +54,3 @@ jobs:
 
     - name: Publish
       uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        password: ${{ secrets.PYPI_API_TOKEN }}
