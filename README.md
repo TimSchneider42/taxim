@@ -32,23 +32,17 @@ where OPTIONS can be any subset of the following:
 
 Note that either `torch`, `jax`, or `jax-cpu` has to be chosen as a backend for Taxim to work.
 
-Depending on the installed CUDA version, _PyTorch_, _torch-scatter_, and _JAX_ might have to be installed manually.
-Follow the instructions on their respective websites:
-- [PyTorch](https://pytorch.org/get-started/locally/)
-- [torch-scatter](https://pypi.org/project/torch-scatter/)
-- [JAX](https://jax.readthedocs.io/en/latest/installation.html)
+Depending on the installed CUDA version, [PyTorch](https://pytorch.org/get-started/locally/), [torch-scatter](https://pypi.org/project/torch-scatter/), and [JAX](https://jax.readthedocs.io/en/latest/installation.html) might have to be installed manually.
+Follow the instructions on their respective websites to do so.
 
 ## Usage
 
 To use the tactile simulator, first create an instance of the `Taxim` class:
 
 ```python
-import torch
 from taxim import Taxim
 
-dev = "cuda"
-
-taxim = Taxim(device=dev)
+taxim = Taxim(device="cuda")
 ```
 
 Optionally, you can pass the constructor a path to a calibration folder if you wish to use a different calibration.
