@@ -19,8 +19,8 @@ dependencies = [
 homepage = "https://github.com/TimSchneider42/taxim"
 
 [project.optional-dependencies]
-all = ["torch", "torch-scatter", "jax[cuda12]", "matplotlib"]
-torch = ["torch", "torch-scatter"]
+all = ["torch", "torchvision", "torch-scatter", "jax[cuda12]", "matplotlib"]
+torch = ["torch", "torch-scatter", "torchvision"]
 jax = ["jax[cuda12]"]
 jax-cpu = ["jax"]
 examples = ["matplotlib"]

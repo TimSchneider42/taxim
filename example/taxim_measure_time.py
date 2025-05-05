@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import jax
-import jax.numpy as jnp
 import numpy as np
 import torch
 
@@ -10,23 +9,27 @@ from taxim.taxim_jax import TaximJax
 from taxim.taxim_torch import TaximTorch
 
 
-def get_hm(seed: int):
+def get_hm(seed: int, shape: tuple[int, int]):
     # Generate some arbitrary heightmap
-    height_map_init = np.zeros((480, 640), dtype=np.float32)
+    height_map_init = np.zeros(shape, dtype=np.float32)
     rep = 100
-    height_maps = np.zeros((2, rep, 480, 640), dtype=np.float32)
+    height_maps = np.zeros((2, rep, *shape), dtype=np.float32)
     rng = np.random.default_rng(seed)
-    height_maps[..., 200:300, 200:500] = (
-        rng.normal(0.0, 0.1, size=(2, rep, 100, 300)) + 10.0
+    s0 = int(shape[0] * 0.3)
+    e0 = int(shape[0] * 0.6)
+    s1 = int(shape[1] * 0.3)
+    e1 = int(shape[1] * 0.6)
+    height_maps[..., s0:e0, s1:e1] = (
+        rng.normal(0.0, 0.1, size=(2, rep, e0 - s0, e1 - s1)) + 10.0
     )
     return height_map_init, height_maps
 
 
-def test_performance_jax(dev: str):
+def test_performance_jax(dev: str, shape: tuple[int, int]):
     dev = jax.devices(dev)[0]
     taxim = TaximJax(device=dev)
     # Generate some arbitrary heightmap
-    height_map_init, height_maps = get_hm(0)
+    height_map_init, height_maps = get_hm(0, shape)
     height_maps = jax.device_put(height_maps, device=dev)
     height_map_init = jax.device_put(height_map_init, device=dev)
 
@@ -60,10 +63,10 @@ def test_performance_jax(dev: str):
     )
 
 
-def test_performance_torch(dev: str):
+def test_performance_torch(dev: str, shape: tuple[int, int]):
     taxim = TaximTorch(device=dev)
     # Generate some arbitrary heightmap
-    height_map_init, height_maps = get_hm(0)
+    height_map_init, height_maps = get_hm(0, shape)
     height_maps = torch.from_numpy(height_maps).to(dev)
     height_map_init = torch.from_numpy(height_map_init).to(dev)
 
@@ -97,26 +100,29 @@ def test_performance_torch(dev: str):
     )
 
 
-try:
-    print("Accelerated implementation PyTorch (GPU)")
-    test_performance_torch("cuda")
-except:
-    print("Accelerated implementation PyTorch (GPU) not available")
+for shape in [(480, 640), (240, 320), (120, 160), (64, 64)]:
+    print(f"Testing shape {shape}...")
+    try:
+        print("Accelerated implementation PyTorch (GPU)")
+        test_performance_torch("cuda", shape)
+    except:
+        print("Accelerated implementation PyTorch (GPU) not available")
 
-print()
-print("Accelerated implementation PyTorch (CPU)")
-test_performance_torch("cpu")
-
-try:
     print()
-    print("Accelerated implementation JAX (GPU)")
-    test_performance_jax("cuda")
-except:
-    print("Accelerated implementation JAX (GPU) not available")
+    print("Accelerated implementation PyTorch (CPU)")
+    test_performance_torch("cpu", shape)
 
-print()
-print("Accelerated implementation JAX (CPU)")
-test_performance_jax("cpu")
+    try:
+        print()
+        print("Accelerated implementation JAX (GPU)")
+        test_performance_jax("cuda", shape)
+    except:
+        print("Accelerated implementation JAX (GPU) not available")
+
+    print()
+    print("Accelerated implementation JAX (CPU)")
+    test_performance_jax("cpu", shape)
+    print()
 
 # Original implementation:
 # Without shadow:  67.0822ms

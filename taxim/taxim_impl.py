@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import json
 from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Dict, Any, Generic, TypeVar, Union, overload, Tuple
+from typing import Any, Generic, TypeVar, overload
 
 import numpy as np
 
@@ -12,20 +14,48 @@ ArrayType = TypeVar("ArrayType")
 DeviceType = TypeVar("DeviceType")
 
 
+# All parameters ending in _rel will be multiplied by the width of the sensor image in pixels
 @dataclass(frozen=True)
 class SimulatorParameters:
-    kscale: int  # Initial frame sigma
+    initial_frame_sigma_rel: float  # Initial frame sigma
     frame_mixing_percentage: float
     diff_threshold: int
     contact_scale: float
-    pyramid_kernel_size: Tuple[int, ...]
-    kernel_size: int
-    sigma: float
-    shadow_step: float
+    deform_pyramid_sigma_rel: tuple[float, ...]
+    shadow_blur_sigma_rel: float
+    deform_final_sigma_rel: float
+    shadow_step_rel: float
     height_precision: float
     discretize_precision: float
     fan_angle: float
     fan_precision: float
+    shadow_attachment_kernel_size_rel: float
+
+    def __getattr__(self, item):
+        rel_name = f"{item}_rel"
+        if not item.endswith("_rel") and hasattr(self, rel_name):
+            value = getattr(self, rel_name)
+
+            def return_fn(shape: tuple[int, int]):
+                assert len(shape) == 2
+                w_val = value[0]
+                h_val = value[1]
+                w_val = (
+                    tuple(e * shape[1] for e in w_val)
+                    if isinstance(w_val, tuple)
+                    else w_val * shape[1]
+                )
+                h_val = (
+                    tuple(e * shape[0] for e in h_val)
+                    if isinstance(h_val, tuple)
+                    else h_val * shape[0]
+                )
+                return w_val, h_val
+
+            return return_fn
+        raise AttributeError(
+            f"'{type(self).__name__}' object has no attribute '{item}'"
+        )
 
 
 @dataclass(frozen=True)
@@ -44,13 +74,21 @@ class SensorParameters:
         return self.h
 
 
+def lists_to_tuples(obj):
+    if isinstance(obj, list):
+        return tuple(lists_to_tuples(i) for i in obj)
+    elif isinstance(obj, dict):
+        return {k: lists_to_tuples(v) for k, v in obj.items()}
+    return obj
+
+
 class TaximImpl(Generic[ArrayType, DeviceType], ABC):
     def __init__(
         self,
         backend_name: str,
         device: DeviceType,
         calib_folder: Path = CALIB_GELSIGHT,
-        params: Optional[Dict[str, Dict[str, Any]]] = None,
+        params: dict[str, dict[str, Any]] | None = None,
     ):
         """
 
@@ -67,24 +105,18 @@ class TaximImpl(Generic[ArrayType, DeviceType], ABC):
             if params is not None
             else default_params
         )
-        sensor_params = params["sensor"]
-        simulator_params = params["simulator"]
-        simulator_params["sigma"] = float(simulator_params["sigma"])
-        simulator_params["pyramid_kernel_size"] = tuple(
-            simulator_params["pyramid_kernel_size"]
-        )
 
-        self._sim_params = SimulatorParameters(**simulator_params)
-        self._sensor_params = SensorParameters(**sensor_params)
-        self._device = device
-        self._backend_name = backend_name
+        self.__sim_params = SimulatorParameters(**lists_to_tuples(params["simulator"]))
+        self.__sensor_params = SensorParameters(**lists_to_tuples(params["sensor"]))
+        self.__device = device
+        self.__backend_name = backend_name
 
     @overload
     def render(
         self,
         height_map: ArrayType,
         with_shadow: bool = True,
-        press_depth: Optional[float] = None,
+        press_depth: float | None = None,
         orig_hm_fmt: bool = False,
     ) -> ArrayType:
         ...
@@ -94,18 +126,18 @@ class TaximImpl(Generic[ArrayType, DeviceType], ABC):
         self,
         height_map: np.ndarray,
         with_shadow: bool = True,
-        press_depth: Optional[float] = None,
+        press_depth: float | None = None,
         orig_hm_fmt: bool = False,
     ) -> np.ndarray:
         ...
 
     def render(
         self,
-        height_map: Union[ArrayType, np.ndarray],
+        height_map: ArrayType | np.ndarray,
         with_shadow: bool = True,
-        press_depth: Optional[float] = None,
+        press_depth: float | None = None,
         orig_hm_fmt: bool = False,
-    ) -> Union[ArrayType, np.ndarray]:
+    ) -> ArrayType | np.ndarray:
         """
         Generates a synthetic tactile image from a height map.
         :param height_map:  Height map to generate tactile image for. The values of this height map correspond to the
@@ -139,7 +171,7 @@ class TaximImpl(Generic[ArrayType, DeviceType], ABC):
         self,
         height_map: ArrayType,
         with_shadow: bool = True,
-        press_depth: Optional[float] = None,
+        press_depth: float | None = None,
         orig_hm_fmt: bool = False,
     ) -> ArrayType:
         """
@@ -160,13 +192,13 @@ class TaximImpl(Generic[ArrayType, DeviceType], ABC):
         self,
         height_map: ArrayType,
         with_shadow: bool = True,
-        press_depth: Optional[float] = None,
+        press_depth: float | None = None,
         orig_hm_fmt: bool = False,
     ) -> ArrayType:
         pass
 
     @classmethod
-    def __update_dict_recursive(cls, default: Dict, update: Dict) -> Dict:
+    def __update_dict_recursive(cls, default: dict, update: dict) -> dict:
         """
         Update the default dict with values from the update dict. The update dict cannot contain keys not present in the
         default dict.
@@ -190,7 +222,7 @@ class TaximImpl(Generic[ArrayType, DeviceType], ABC):
 
         :return: Width of the output image in pixels.
         """
-        return self._sensor_params.width
+        return self.__sensor_params.width
 
     @property
     def height(self) -> int:
@@ -198,7 +230,7 @@ class TaximImpl(Generic[ArrayType, DeviceType], ABC):
 
         :return: Height of the output image in pixels.
         """
-        return self._sensor_params.height
+        return self.__sensor_params.height
 
     @property
     def sim_params(self) -> SimulatorParameters:
@@ -206,7 +238,7 @@ class TaximImpl(Generic[ArrayType, DeviceType], ABC):
 
         :return: The simulator parameters.
         """
-        return self._sim_params
+        return self.__sim_params
 
     @property
     def sensor_params(self) -> SensorParameters:
@@ -214,7 +246,7 @@ class TaximImpl(Generic[ArrayType, DeviceType], ABC):
 
         :return: The sensor parameters.
         """
-        return self._sensor_params
+        return self.__sensor_params
 
     @property
     def device(self) -> DeviceType:
@@ -222,8 +254,8 @@ class TaximImpl(Generic[ArrayType, DeviceType], ABC):
 
         :return: The device used by this Taxim instance.
         """
-        return self._device
+        return self.__device
 
     @property
     def backend_name(self) -> str:
-        return self._backend_name
+        return self.__backend_name

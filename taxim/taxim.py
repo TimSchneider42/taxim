@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Optional, Dict, Any, Literal, overload, Union, TYPE_CHECKING
+from typing import Any, Literal, overload, TYPE_CHECKING
 
 from .calibration import CALIB_GELSIGHT
 
@@ -16,8 +18,8 @@ if TYPE_CHECKING:
 
 def _mk_taxim_torch(
     calib_folder: Path,
-    params: Optional[Dict[str, Dict[str, Any]]],
-    device: Optional[str],
+    params: dict[str, dict[str, Any]] | None,
+    device: str | None,
 ) -> "TaximTorch":
     try:
         from .taxim_torch import TaximTorch
@@ -34,8 +36,8 @@ def _mk_taxim_torch(
 
 def _mk_taxim_jax(
     calib_folder: Path,
-    params: Optional[Dict[str, Dict[str, Any]]],
-    device: Optional[str],
+    params: dict[str, dict[str, Any]] | None,
+    device: str | None,
 ) -> "TaximJax":
     try:
         from .taxim_jax import TaximJax
@@ -53,7 +55,7 @@ def _mk_taxim_jax(
 @overload
 def Taxim(
     calib_folder: Path = ...,
-    params: Optional[Dict[str, Dict[str, Any]]] = ...,
+    params: dict[str, dict[str, Any]] | None = ...,
     backend: Literal["torch"] = ...,
 ) -> "TaximTorch":
     ...
@@ -62,7 +64,7 @@ def Taxim(
 @overload
 def Taxim(
     calib_folder: Path = ...,
-    params: Optional[Dict[str, Dict[str, Any]]] = ...,
+    params: dict[str, dict[str, Any]] | None = ...,
     backend: Literal["jax"] = ...,
 ) -> "TaximJax":
     ...
@@ -71,7 +73,7 @@ def Taxim(
 @overload
 def Taxim(
     calib_folder: Path = ...,
-    params: Optional[Dict[str, Dict[str, Any]]] = ...,
+    params: dict[str, dict[str, Any]] | None = ...,
     backend: Literal["auto"] = ...,
 ) -> "Union[TaximTorch, TaximJax]":
     ...
@@ -79,9 +81,9 @@ def Taxim(
 
 def Taxim(
     calib_folder: Path = CALIB_GELSIGHT,
-    params: Optional[Dict[str, Dict[str, Any]]] = None,
+    params: dict[str, dict[str, Any]] | None = None,
     backend: Literal["torch", "jax", "auto"] = "auto",
-    device: Optional[str] = None,
+    device: str | None = None,
 ) -> "Union[TaximTorch, TaximJax]":
     """
     Create a Taxim simulator.
